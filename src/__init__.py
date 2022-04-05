@@ -4,6 +4,8 @@ from cachetools import TTLCache, cached, LRUCache
 from fastapi import FastAPI, HTTPException
 from aiohttp import ClientSession, TCPConnector
 
+from fastapi_utils.tasks import repeat_every
+
 from asyncio import get_event_loop, coroutine, sleep
 
 cache = TTLCache(ttl=900, maxsize=5)
@@ -23,22 +25,11 @@ http = ClientSession(connector=tcpconn)
 loop = get_event_loop()
 
 
-async def refresh_cache(l=True):
-    while l:
-        for url in domain_lists:
-            res = await http.get(url)
-            cache[url] = (await res.text("utf-8")).splitlines()
-        if l:
-            await sleep(450)
-
-
-def stop():
-    task.cancel()
-
-
-loop = get_event_loop()
-loop.call_later(5, stop)
-task = loop.create_task(refresh_cache())
+async def refresh_cache():
+    for url in domain_lists:
+        res = await http.get(url)
+        cache[url] = (await res.text("utf-8")).splitlines()
+        await sleep(450)
 
 @cached(cache=TTLCache(3, 450))
 def get_all_links(suspicious=False):
@@ -64,8 +55,9 @@ def where_link(url):
 
 
 @app.on_event("startup")
+@repeat_every(seconds=10)
 async def startup_event():
-    await refresh_cache(l=False)
+    await refresh_cache()
 
 
 @app.get("/")
