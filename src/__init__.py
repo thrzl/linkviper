@@ -1,8 +1,11 @@
 from typing import Optional
 from cachetools import TTLCache, cached, LRUCache
+from progress.bar import ChargingBar
+from progress.spinner import PixelSpinner
 
 from fastapi import FastAPI, HTTPException
 from aiohttp import ClientSession, TCPConnector
+from time import sleep as syncs
 
 from fastapi_utils.tasks import repeat_every
 
@@ -12,6 +15,7 @@ cache = TTLCache(ttl=900, maxsize=5)
 
 domain_lists = [
     "https://raw.githubusercontent.com/nikolaischunk/discord-phishing-links/main/txt/domain-list.txt",
+    "https://hole.cert.pl/domains/domains.txt"
 ]
 
 sussy_domain_lists = [  # ඞ
@@ -19,35 +23,46 @@ sussy_domain_lists = [  # ඞ
 ]
 
 app = FastAPI()
+
+# ? uncomment for profiling
+# from fastapi_profiler.profiler_middleware import PyInstrumentProfilerMiddleware
+# app.add_middleware(PyInstrumentProfilerMiddleware)
+
 tcpconn = TCPConnector(ttl_dns_cache=3600)
 http = ClientSession(connector=tcpconn)
+
+domain_count = 0
 
 loop = get_event_loop()
 
 
 async def refresh_cache():
-    for url in domain_lists:
-        res = await http.get(url)
-        cache[url] = (await res.text("utf-8")).splitlines()
-        await sleep(450)
+    with ChargingBar("downloading domain lists", max=len(domain_lists)) as bar:
+        for url in domain_lists:
+            res = await http.get(url)
+            cache[url] = (await res.text("utf-8")).splitlines()
+            bar.next()
+        bar.finish()
+
+def cache_all():
+    urls = get_all_links(suspicious=True)
+    print(urls)
+    with ChargingBar("caching list", max=(31)) as bar: # 62000 is the approx. link count
+        for index, url in enumerate(urls):
+            print(index)
+            print(url)
+            if check_link(url): print("checked the link"); where_link(url)
+            if index % 2000 == 0: bar.next()
+        bar.finish()
+
+@cached(cache=TTLCache(500, 450))
+def get_all_links(suspicious=False) -> list:
+        l = []
+
+        return list({url for url in cache[url_list] for url_list in cache.keys()})
 
 
-@cached(cache=TTLCache(3, 450))
-def get_all_links(suspicious=False):
-    l = []
-    for url_list in cache.keys():
-        for url in cache[url_list]:
-            if url not in l:
-                l.append(url)
-    # l = (zip([[url for url in cache[url_list]] for url_list in cache.keys()]))
-    # fl = []
-    # for i in l:
-    #     if i not in fl:
-    #         fl.append(i)
-    return l
-
-
-@cached(cache=TTLCache(3, 450))
+@cached(cache=TTLCache(500, 450))
 def check_link(url, suspicious=False):
     return url in get_all_links(suspicious)
 
@@ -58,9 +73,12 @@ def where_link(url):
 
 
 @app.on_event("startup")
-@repeat_every(seconds=10)
+@repeat_every(seconds=3600)  # 1h
 async def startup_event():
+    await sleep(1) # stuff gets garbled after a while
     await refresh_cache()
+    cache_all()
+    print(f"ready with {len(get_all_links())} domains!")
 
 
 @app.get("/")
@@ -70,12 +88,14 @@ async def routes():
 
 @app.get("/links/{url}")
 async def read_item(url: str, suspicious: Optional[bool] = False):
+    print(f"checking {url}")
     if not check_link(url, suspicious):
         raise HTTPException(status_code=404, detail="Item not found")
 
-    return {"result": True, "source": [i for i in cache.keys() if url in cache[i]][0]}
+    return {"result": True, "source": where_link(url)}
 
 
 @app.get("/links")
 async def all_links(suspicious: Optional[bool] = False):
-    return {"result": get_all_links(suspicious)}
+    all_domains = get_all_links(suspicious)
+    return {"result": all_domains, "totalAmount": len(all_domains)}
