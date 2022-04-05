@@ -31,6 +31,7 @@ async def refresh_cache():
         cache[url] = (await res.text("utf-8")).splitlines()
         await sleep(450)
 
+
 @cached(cache=TTLCache(3, 450))
 def get_all_links(suspicious=False):
     l = []
@@ -45,9 +46,11 @@ def get_all_links(suspicious=False):
     #         fl.append(i)
     return l
 
+
 @cached(cache=TTLCache(3, 450))
 def check_link(url, suspicious=False):
-    return (url in get_all_links(suspicious))
+    return url in get_all_links(suspicious)
+
 
 @cached(cache=LRUCache(250))
 def where_link(url):
@@ -70,11 +73,7 @@ async def read_item(url: str, suspicious: Optional[bool] = False):
     if not check_link(url, suspicious):
         raise HTTPException(status_code=404, detail="Item not found")
 
-    
-    return {
-        "result": True,
-        "source": [i for i in cache.keys() if url in cache[i]][0]
-    }
+    return {"result": True, "source": [i for i in cache.keys() if url in cache[i]][0]}
 
 
 @app.get("/links")
