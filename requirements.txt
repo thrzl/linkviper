@@ -438,6 +438,8 @@ multidict==6.0.2; python_version >= "3.7" \
     --hash=sha256:23b616fdc3c74c9fe01d76ce0d1ce872d2d396d8fa8e4899398ad64fb5aa214a \
     --hash=sha256:4bae31803d708f6f15fd98be6a6ac0b6958fcf68fda3c77a048a4f9073704aae \
     --hash=sha256:5ff3bd75f38e4c43f1f470f2df7a4d430b821c4ce22be384e1459cb57d6bb013
+progress==1.6 \
+    --hash=sha256:c9c86e98b5c03fa1fe11e3b67c1feda4788b8d0fe7336c2ff7d5644ccfba34cd
 pycares==4.1.2 \
     --hash=sha256:71b99b9e041ae3356b859822c511f286f84c8889ec9ed1fbf6ac30fb4da13e4c \
     --hash=sha256:c000942f5fc64e6e046aa61aa53b629b576ba11607d108909727c3c8f211a157 \

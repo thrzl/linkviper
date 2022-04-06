@@ -46,20 +46,25 @@ async def refresh_cache():
 
 def cache_all():
     urls = get_all_links(suspicious=True)
-    print(urls)
-    with ChargingBar("caching list", max=(31)) as bar: # 62000 is the approx. link count
+    with ChargingBar("caching list", max=(51282)) as bar: # 62000 is the approx. link count
         for index, url in enumerate(urls):
-            print(index)
-            print(url)
-            if check_link(url): print("checked the link"); where_link(url)
-            if index % 2000 == 0: bar.next()
+            # print(check_link(url))
+            if check_link(url): where_link(url)
+            if index % 1000 == 0: bar.message=url; bar.next(1000)
         bar.finish()
 
 @cached(cache=TTLCache(500, 450))
-def get_all_links(suspicious=False) -> list:
+def get_all_links(suspicious=False, task=False) -> list:
         l = []
-
-        return list({url for url in cache[url_list] for url_list in cache.keys()})
+        # with ChargingBar("processing domains", max=51282) as bar:
+        for url_list in cache.keys():
+            for index, url in enumerate(cache[url_list]):
+                if url not in l:
+                    l.append(url)
+                    # if index % 100 == 0: bar.next(100)
+        # bar.finish()
+        # return list({url for url in cache[url_list] for url_list in cache.keys()})
+        return l
 
 
 @cached(cache=TTLCache(500, 450))
@@ -83,12 +88,11 @@ async def startup_event():
 
 @app.get("/")
 async def routes():
-    return app.routes
+    return "alive!"
 
 
 @app.get("/links/{url}")
 async def read_item(url: str, suspicious: Optional[bool] = False):
-    print(f"checking {url}")
     if not check_link(url, suspicious):
         raise HTTPException(status_code=404, detail="Item not found")
 
@@ -98,4 +102,4 @@ async def read_item(url: str, suspicious: Optional[bool] = False):
 @app.get("/links")
 async def all_links(suspicious: Optional[bool] = False):
     all_domains = get_all_links(suspicious)
-    return {"result": all_domains, "totalAmount": len(all_domains)}
+    return {"result": all_domains, "totalAmount": len(all_domains), "sources": domain_lists}
